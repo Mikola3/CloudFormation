@@ -1,0 +1,128 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: A simple EC2 instance
+
+Mappings:
+  AWSRegionArch2AMI:
+    us-east-1:
+      HVM64 : "ami-011c3ba75106b41d8"
+      nets :
+      - us-east-1a
+      - us-east-1b
+    us-east-2:
+      HVM64 : "ami-0dd9cce2b0b868bed"
+      nets :
+      - us-east-2a
+      - us-east-2b
+
+Resources:
+  ServerSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable HTTP access via port 80 + SSH access
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+   
+  LBKislouski:
+    Type: "AWS::ElasticLoadBalancing::LoadBalancer"
+    Properties:
+      LoadBalancerName: LBKislouski
+      Listeners:
+        - LoadBalancerPort: '80'
+          InstancePort: '80'
+          Protocol: HTTP
+      AvailabilityZones:
+        !FindInMap 
+        - AWSRegionArch2AMI      
+        - !Ref 'AWS::Region'
+        - nets
+
+
+  LCKislouski:
+    Type: "AWS::AutoScaling::LaunchConfiguration"
+    Properties:
+      ImageId: !FindInMap 
+        - AWSRegionArch2AMI      
+        - !Ref 'AWS::Region'
+        - HVM64
+      InstanceType: t2.micro
+      SecurityGroups:
+      - Ref: "ServerSecurityGroup"
+
+  ASGKislouski:
+    Type: "AWS::AutoScaling::AutoScalingGroup"
+    Properties:
+      AvailabilityZones:
+        !FindInMap 
+        - AWSRegionArch2AMI      
+        - !Ref 'AWS::Region'
+        - nets
+      LaunchConfigurationName: 
+        Ref: "LCKislouski"
+      LoadBalancerNames:
+      - LBKislouski
+      MaxSize: 3
+      MinSize: 1
+      DesiredCapacity: 2
+      Cooldown: 40
+
+  ASPolicyadd:
+    Type: "AWS::AutoScaling::ScalingPolicy"
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: 
+        Ref: "ASGKislouski"
+      ScalingAdjustment: 1
+      Cooldown: 60
+
+  RequestCountadd:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmActions:
+      - Ref: "ASPolicyadd"
+      AlarmDescription: "Add 1 if alarma"
+      AlarmName: RequestCountadd
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+      - Name: LoadBalancerName
+        Value: LBKislouski
+      EvaluationPeriods: 1
+      MetricName: RequestCount
+      Namespace: AWS/ELB
+      Period: 60
+      Statistic: Sum
+      Threshold: 10
+ 
+  ASPolicydel:
+    Type: "AWS::AutoScaling::ScalingPolicy"
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: 
+        Ref: "ASGKislouski"
+      ScalingAdjustment: -1
+      Cooldown: 60
+  
+  RequestCountdel:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmActions:
+      - Ref: "ASPolicydel"
+      AlarmDescription: "Del 1 if alarma"
+      AlarmName: RequestCountdel
+      ComparisonOperator: LessThanOrEqualToThreshold
+      Dimensions:
+      - Name: LoadBalancerName
+        Value: LBKislouski
+      EvaluationPeriods: 1
+      MetricName: RequestCount
+      Namespace: AWS/ELB
+      Period: 60
+      Statistic: Sum
+      Threshold: 10
+  
