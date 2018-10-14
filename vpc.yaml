@@ -1,0 +1,268 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: VPC Stack CloudFormation
+Parameters:
+  Version:
+    Type: String
+    Default: v1
+    AllowedValues:
+    - v1
+  CidrBlock:
+    Type: String
+    Default: 172.30.0.0/16
+    AllowedValues:
+    - 172.30.0.0/16
+  Zone:
+    Type: String
+    Default: phoenix.mobileiron.com
+    AllowedValues:
+    - phoenix.mobileiron.com
+Resources:
+  # VPC Layout
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref CidrBlock
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value: !Ref AWS::StackName
+  # Private (default) subnets reserve /20 networks.
+  PrivateSubnet0:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Join [ ".", [ !Select [ 0, !Split [ ".", !GetAtt VPC.CidrBlock ] ], !Select [ 1, !Split [ ".", !GetAtt VPC.CidrBlock ] ], "0", "0/20" ] ]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", "a" ] ]
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "PrivateSubnet0" ] ]
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Join [ ".", [ !Select [ 0, !Split [ ".", !GetAtt VPC.CidrBlock ] ], !Select [ 1, !Split [ ".", !GetAtt VPC.CidrBlock ] ], "16", "0/20" ] ]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", "b" ] ]
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "PrivateSubnet1" ] ]
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Join [ ".", [ !Select [ 0, !Split [ ".", !GetAtt VPC.CidrBlock ] ], !Select [ 1, !Split [ ".", !GetAtt VPC.CidrBlock ] ], "32", "0/20" ] ]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", "c" ] ]
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "PrivateSubnet2" ] ]
+  # ENI (eni only) subnets reserve /22 networks.
+  ENISubnet0:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Join [ ".", [ !Select [ 0, !Split [ ".", !GetAtt VPC.CidrBlock ] ], !Select [ 1, !Split [ ".", !GetAtt VPC.CidrBlock ] ], "48", "0/22" ] ]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", "a" ] ]
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "ENISubnet0" ] ]
+  ENISubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Join [ ".", [ !Select [ 0, !Split [ ".", !GetAtt VPC.CidrBlock ] ], !Select [ 1, !Split [ ".", !GetAtt VPC.CidrBlock ] ], "52", "0/22" ] ]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", "b" ] ]
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "ENISubnet1" ] ]
+  ENISubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Join [ ".", [ !Select [ 0, !Split [ ".", !GetAtt VPC.CidrBlock ] ], !Select [ 1, !Split [ ".", !GetAtt VPC.CidrBlock ] ], "56", "0/22" ] ]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", "c" ] ]
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "ENISubnet2" ] ]
+  # Public (Internet) subnets reserve /20 networks.
+  PublicSubnet0:
+    DependsOn: VPCGatewayAttachment
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Join [ ".", [ !Select [ 0, !Split [ ".", !GetAtt VPC.CidrBlock ] ], !Select [ 1, !Split [ ".", !GetAtt VPC.CidrBlock ] ], "60", "0/24" ] ]
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", "a" ] ]
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "PublicSubnet0" ] ]
+  PublicSubnet1:
+    DependsOn: VPCGatewayAttachment
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Join [ ".", [ !Select [ 0, !Split [ ".", !GetAtt VPC.CidrBlock ] ], !Select [ 1, !Split [ ".", !GetAtt VPC.CidrBlock ] ], "61", "0/24" ] ]
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", "b" ] ]
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "PublicSubnet1" ] ]
+  PublicSubnet2:
+    DependsOn: VPCGatewayAttachment
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Join [ ".", [ !Select [ 0, !Split [ ".", !GetAtt VPC.CidrBlock ] ], !Select [ 1, !Split [ ".", !GetAtt VPC.CidrBlock ] ], "62", "0/24" ] ]
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", "c" ] ]
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "PublicSubnet2" ] ]
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Ref AWS::StackName
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "PublicRouteTable" ] ]
+  PublicRoute:
+    DependsOn: VPCGatewayAttachment
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  PublicSubnet0RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet0
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+  EIP0:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: !Ref VPC
+  EIP1:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: !Ref VPC
+  EIP2:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: !Ref VPC
+  NatGateway0:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt EIP0.AllocationId
+      SubnetId: !Ref PublicSubnet0
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "NatGateway0" ] ]
+  NatGateway1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt EIP1.AllocationId
+      SubnetId: !Ref PublicSubnet1
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "NatGateway1" ] ]
+  NatGateway2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt EIP2.AllocationId
+      SubnetId: !Ref PublicSubnet2
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "NatGateway2" ] ]
+  PrivateRouteTable0:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "PrivateRouteTable0" ] ]
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "PrivateRouteTable1" ] ]
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref "AWS::StackName", "PrivateRouteTable2" ] ]
+  PrivateRoute0:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable0
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway0
+  PrivateRoute1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+  PrivateRoute2:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway2
+  PrivateSubnet0RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet0
+      RouteTableId: !Ref PrivateRouteTable0
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable1
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable2
+  # DNS
+  DNS:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: !Join [ ".", [ !Ref "AWS::Region", !Ref Zone ] ]
+      VPCs:
+      - VPCId: !Ref VPC
+        VPCRegion: !Ref "AWS::Region"
+      HostedZoneTags:
+      - Key: Name
+        Value: !Ref AWS::StackName
+  # DBSubnetGroup
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: D
+      SubnetIds:
+      - !Ref PrivateSubnet0
+      - !Ref PrivateSubnet1
+      - !Ref PrivateSubnet2
